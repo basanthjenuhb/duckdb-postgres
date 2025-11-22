@@ -26,7 +26,7 @@ ORDER BY pg_namespace.oid;
 	return StringUtil::Replace(base_query, "${CONDITION}", condition);
 }
 
-void PostgresIndexSet::LoadEntries(PostgresTransaction &transaction) {
+void PostgresIndexSet::LoadEntries(ClientContext &context, PostgresTransaction &transaction) {
 	if (!index_result) {
 		throw InternalException("PostgresIndexSet::LoadEntries called without an index result defined");
 	}

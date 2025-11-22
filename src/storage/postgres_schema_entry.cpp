@@ -154,7 +154,7 @@ void PostgresSchemaEntry::Alter(CatalogTransaction transaction, AlterInfo &info)
 	}
 	auto &postgres_transaction = GetPostgresTransaction(transaction);
 	auto &alter = info.Cast<AlterTableInfo>();
-	tables.AlterTable(postgres_transaction, alter);
+	tables.AlterTable(transaction.GetContext(), postgres_transaction, alter);
 }
 
 bool CatalogTypeIsSupported(CatalogType type) {
@@ -175,7 +175,7 @@ void PostgresSchemaEntry::Scan(ClientContext &context, CatalogType type,
 		return;
 	}
 	auto &postgres_transaction = PostgresTransaction::Get(context, catalog);
-	GetCatalogSet(type).Scan(postgres_transaction, callback);
+	GetCatalogSet(type).Scan(context, postgres_transaction, callback);
 }
 void PostgresSchemaEntry::Scan(CatalogType type, const std::function<void(CatalogEntry &)> &callback) {
 	throw NotImplementedException("Scan without context not supported");
@@ -194,7 +194,7 @@ optional_ptr<CatalogEntry> PostgresSchemaEntry::LookupEntry(CatalogTransaction t
 		return nullptr;
 	}
 	auto &postgres_transaction = GetPostgresTransaction(transaction);
-	return GetCatalogSet(catalog_type).GetEntry(postgres_transaction, lookup_info.GetEntryName());
+	return GetCatalogSet(catalog_type).GetEntry(transaction.GetContext(), postgres_transaction, lookup_info.GetEntryName());
 }
 
 PostgresCatalogSet &PostgresSchemaEntry::GetCatalogSet(CatalogType type) {

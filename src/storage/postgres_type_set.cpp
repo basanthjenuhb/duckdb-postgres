@@ -145,7 +145,7 @@ void PostgresTypeSet::InitializeCompositeTypes(PostgresTransaction &transaction,
 	}
 }
 
-void PostgresTypeSet::LoadEntries(PostgresTransaction &transaction) {
+void PostgresTypeSet::LoadEntries(ClientContext &context, PostgresTransaction &transaction) {
 	if (!enum_result || !composite_type_result) {
 		throw InternalException("PostgresTypeSet::LoadEntries not defined without enum/composite type result");
 	}

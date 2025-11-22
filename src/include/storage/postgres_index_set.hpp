@@ -26,7 +26,7 @@ public:
 	                                       TableCatalogEntry &table);
 
 protected:
-	void LoadEntries(PostgresTransaction &transaction) override;
+	void LoadEntries(ClientContext &context, PostgresTransaction &transaction) override;
 
 protected:
 	unique_ptr<PostgresResultSlice> index_result;

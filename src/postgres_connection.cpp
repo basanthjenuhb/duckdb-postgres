@@ -94,7 +94,7 @@ void PostgresConnection::Execute(const string &query) {
 	Query(query);
 }
 
-vector<unique_ptr<PostgresResult>> PostgresConnection::ExecuteQueries(const string &queries) {
+vector<unique_ptr<PostgresResult>> PostgresConnection::ExecuteQueries(ClientContext &context, const string &queries) {
 	if (PostgresConnection::DebugPrintQueries()) {
 		Printer::Print(queries + "\n");
 	}

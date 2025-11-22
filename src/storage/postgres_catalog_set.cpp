@@ -8,8 +8,8 @@ namespace duckdb {
 PostgresCatalogSet::PostgresCatalogSet(Catalog &catalog, bool is_loaded_p) : catalog(catalog), is_loaded(is_loaded_p) {
 }
 
-optional_ptr<CatalogEntry> PostgresCatalogSet::GetEntry(PostgresTransaction &transaction, const string &name) {
-	TryLoadEntries(transaction);
+optional_ptr<CatalogEntry> PostgresCatalogSet::GetEntry(ClientContext &context, PostgresTransaction &transaction, const string &name) {
+	TryLoadEntries(context, transaction);
 	{
 		lock_guard<mutex> l(entry_lock);
 		auto entry = entries.find(name);
@@ -40,7 +40,7 @@ optional_ptr<CatalogEntry> PostgresCatalogSet::GetEntry(PostgresTransaction &tra
 	return nullptr;
 }
 
-void PostgresCatalogSet::TryLoadEntries(PostgresTransaction &transaction) {
+void PostgresCatalogSet::TryLoadEntries(ClientContext &context, PostgresTransaction &transaction) {
 	if (HasInternalDependencies()) {
 		if (is_loaded) {
 			return;
@@ -51,7 +51,7 @@ void PostgresCatalogSet::TryLoadEntries(PostgresTransaction &transaction) {
 		return;
 	}
 	is_loaded = true;
-	LoadEntries(transaction);
+	LoadEntries(context, transaction);
 }
 
 optional_ptr<CatalogEntry> PostgresCatalogSet::ReloadEntry(PostgresTransaction &transaction, const string &name) {
@@ -78,8 +78,8 @@ void PostgresCatalogSet::DropEntry(PostgresTransaction &transaction, DropInfo &i
 	entries.erase(info.name);
 }
 
-void PostgresCatalogSet::Scan(PostgresTransaction &transaction, const std::function<void(CatalogEntry &)> &callback) {
-	TryLoadEntries(transaction);
+void PostgresCatalogSet::Scan(ClientContext &context, PostgresTransaction &transaction, const std::function<void(CatalogEntry &)> &callback) {
+	TryLoadEntries(context, transaction);
 	lock_guard<mutex> l(entry_lock);
 	for (auto &entry : entries) {
 		callback(*entry.second);

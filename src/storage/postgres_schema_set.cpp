@@ -48,7 +48,7 @@ ORDER BY oid;
 	return StringUtil::Replace(base_query, "${CONDITION}", condition);
 }
 
-void PostgresSchemaSet::LoadEntries(PostgresTransaction &transaction) {
+void PostgresSchemaSet::LoadEntries(ClientContext &context, PostgresTransaction &transaction) {
 	auto &pg_catalog = catalog.Cast<PostgresCatalog>();
 	auto pg_version = pg_catalog.GetPostgresVersion();
 	string schema_query = PostgresSchemaSet::GetInitializeQuery(schema_to_load);
@@ -59,7 +59,7 @@ void PostgresSchemaSet::LoadEntries(PostgresTransaction &transaction) {
 
 	auto full_query = schema_query + tables_query + enum_types_query + composite_types_query + index_query;
 
-	auto results = transaction.ExecuteQueries(full_query);
+	auto results = transaction.ExecuteQueries(context, full_query);
 	auto result = std::move(results[0]);
 	results.erase(results.begin());
 	auto rows = result->Count();

@@ -143,7 +143,7 @@ void PostgresTableSet::CreateEntries(PostgresTransaction &transaction, PostgresR
 	}
 }
 
-void PostgresTableSet::LoadEntries(PostgresTransaction &transaction) {
+void PostgresTableSet::LoadEntries(ClientContext &context, PostgresTransaction &transaction) {
 	if (table_result) {
 		CreateEntries(transaction, table_result->GetResult(), table_result->start, table_result->end);
 		table_result.reset();
@@ -340,20 +340,20 @@ string PostgresTableSet::GetAlterTableColumnName(const string &name, optional_pt
 	return table.postgres_names[column_index.index];
 }
 
-string PostgresTableSet::GetAlterTablePrefix(PostgresTransaction &transaction, const string &name) {
-	auto entry = GetEntry(transaction, name);
+string PostgresTableSet::GetAlterTablePrefix(ClientContext &context, PostgresTransaction &transaction, const string &name) {
+	auto entry = GetEntry(context, transaction, name);
 	return GetAlterTablePrefix(name, entry);
 }
 
-void PostgresTableSet::AlterTable(PostgresTransaction &transaction, RenameTableInfo &info) {
-	string sql = GetAlterTablePrefix(transaction, info.name);
+void PostgresTableSet::AlterTable(ClientContext &context, PostgresTransaction &transaction, RenameTableInfo &info) {
+	string sql = GetAlterTablePrefix(context, transaction, info.name);
 	sql += " RENAME TO ";
 	sql += KeywordHelper::WriteQuoted(info.new_table_name, '"');
 	transaction.Query(sql);
 }
 
-void PostgresTableSet::AlterTable(PostgresTransaction &transaction, RenameColumnInfo &info) {
-	auto entry = GetEntry(transaction, info.name);
+void PostgresTableSet::AlterTable(ClientContext &context,PostgresTransaction &transaction, RenameColumnInfo &info) {
+	auto entry = GetEntry(context, transaction, info.name);
 	string sql = GetAlterTablePrefix(info.name, entry);
 	sql += " RENAME COLUMN  ";
 	string column_name = GetAlterTableColumnName(info.old_name, entry);
@@ -364,8 +364,8 @@ void PostgresTableSet::AlterTable(PostgresTransaction &transaction, RenameColumn
 	transaction.Query(sql);
 }
 
-void PostgresTableSet::AlterTable(PostgresTransaction &transaction, AddColumnInfo &info) {
-	string sql = GetAlterTablePrefix(transaction, info.name);
+void PostgresTableSet::AlterTable(ClientContext &context, PostgresTransaction &transaction, AddColumnInfo &info) {
+	string sql = GetAlterTablePrefix(context, transaction, info.name);
 	sql += " ADD COLUMN  ";
 	if (info.if_column_not_exists) {
 		sql += "IF NOT EXISTS ";
@@ -376,8 +376,8 @@ void PostgresTableSet::AlterTable(PostgresTransaction &transaction, AddColumnInf
 	transaction.Query(sql);
 }
 
-void PostgresTableSet::AlterTable(PostgresTransaction &transaction, RemoveColumnInfo &info) {
-	auto entry = GetEntry(transaction, info.name);
+void PostgresTableSet::AlterTable(ClientContext &context, PostgresTransaction &transaction, RemoveColumnInfo &info) {
+	auto entry = GetEntry(context, transaction, info.name);
 	string sql = GetAlterTablePrefix(info.name, entry);
 	sql += " DROP COLUMN  ";
 	if (info.if_column_exists) {
@@ -388,19 +388,19 @@ void PostgresTableSet::AlterTable(PostgresTransaction &transaction, RemoveColumn
 	transaction.Query(sql);
 }
 
-void PostgresTableSet::AlterTable(PostgresTransaction &transaction, AlterTableInfo &alter) {
+void PostgresTableSet::AlterTable(ClientContext &context, PostgresTransaction &transaction, AlterTableInfo &alter) {
 	switch (alter.alter_table_type) {
 	case AlterTableType::RENAME_TABLE:
-		AlterTable(transaction, alter.Cast<RenameTableInfo>());
+		AlterTable(context, transaction, alter.Cast<RenameTableInfo>());
 		break;
 	case AlterTableType::RENAME_COLUMN:
-		AlterTable(transaction, alter.Cast<RenameColumnInfo>());
+		AlterTable(context, transaction, alter.Cast<RenameColumnInfo>());
 		break;
 	case AlterTableType::ADD_COLUMN:
-		AlterTable(transaction, alter.Cast<AddColumnInfo>());
+		AlterTable(context, transaction, alter.Cast<AddColumnInfo>());
 		break;
 	case AlterTableType::REMOVE_COLUMN:
-		AlterTable(transaction, alter.Cast<RemoveColumnInfo>());
+		AlterTable(context, transaction, alter.Cast<RemoveColumnInfo>());
 		break;
 	default:
 		throw BinderException("Unsupported ALTER TABLE type - Postgres tables only "

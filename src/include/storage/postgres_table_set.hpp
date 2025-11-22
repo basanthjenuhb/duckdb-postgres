@@ -30,20 +30,20 @@ public:
 	                                                  const string &table_name);
 	optional_ptr<CatalogEntry> ReloadEntry(PostgresTransaction &transaction, const string &table_name) override;
 
-	void AlterTable(PostgresTransaction &transaction, AlterTableInfo &info);
+	void AlterTable(ClientContext &context, PostgresTransaction &transaction, AlterTableInfo &info);
 
 	static string GetInitializeQuery(const string &schema = string(), const string &table = string());
 
 protected:
-	void LoadEntries(PostgresTransaction &transaction) override;
+	void LoadEntries(ClientContext &context, PostgresTransaction &transaction) override;
 	bool SupportReload() const override {
 		return true;
 	}
 
-	void AlterTable(PostgresTransaction &transaction, RenameTableInfo &info);
-	void AlterTable(PostgresTransaction &transaction, RenameColumnInfo &info);
-	void AlterTable(PostgresTransaction &transaction, AddColumnInfo &info);
-	void AlterTable(PostgresTransaction &transaction, RemoveColumnInfo &info);
+	void AlterTable(ClientContext &context, PostgresTransaction &transaction, RenameTableInfo &info);
+	void AlterTable(ClientContext &context, PostgresTransaction &transaction, RenameColumnInfo &info);
+	void AlterTable(ClientContext &context, PostgresTransaction &transaction, AddColumnInfo &info);
+	void AlterTable(ClientContext &context, PostgresTransaction &transaction, RemoveColumnInfo &info);
 
 	static void AddColumn(optional_ptr<PostgresTransaction> transaction, optional_ptr<PostgresSchemaEntry> schema,
 	                      PostgresResult &result, idx_t row, PostgresTableInfo &table_info);
@@ -55,7 +55,7 @@ protected:
 	void CreateEntries(PostgresTransaction &transaction, PostgresResult &result, idx_t start, idx_t end);
 
 private:
-	string GetAlterTablePrefix(PostgresTransaction &transaction, const string &name);
+	string GetAlterTablePrefix(ClientContext &context, PostgresTransaction &transaction, const string &name);
 	string GetAlterTablePrefix(const string &name, optional_ptr<CatalogEntry> entry);
 	string GetAlterTableColumnName(const string &name, optional_ptr<CatalogEntry> entry);
 

@@ -50,7 +50,7 @@ public:
 	unique_ptr<PostgresResult> Query(const string &query);
 
 	//! Submits a set of queries to be executed in the connection.
-	vector<unique_ptr<PostgresResult>> ExecuteQueries(const string &queries);
+	vector<unique_ptr<PostgresResult>> ExecuteQueries(ClientContext &context, const string &queries);
 
 	PostgresVersion GetPostgresVersion();
 

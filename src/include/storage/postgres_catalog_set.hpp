@@ -23,9 +23,9 @@ class PostgresCatalogSet {
 public:
 	PostgresCatalogSet(Catalog &catalog, bool is_loaded);
 
-	optional_ptr<CatalogEntry> GetEntry(PostgresTransaction &transaction, const string &name);
+	optional_ptr<CatalogEntry> GetEntry(ClientContext &context, PostgresTransaction &transaction, const string &name);
 	void DropEntry(PostgresTransaction &transaction, DropInfo &info);
-	void Scan(PostgresTransaction &transaction, const std::function<void(CatalogEntry &)> &callback);
+	void Scan(ClientContext& context, PostgresTransaction &transaction, const std::function<void(CatalogEntry &)> &callback);
 	virtual optional_ptr<CatalogEntry> CreateEntry(PostgresTransaction &transaction, shared_ptr<CatalogEntry> entry);
 	void ClearEntries();
 	virtual bool SupportReload() const {
@@ -34,13 +34,13 @@ public:
 	virtual optional_ptr<CatalogEntry> ReloadEntry(PostgresTransaction &transaction, const string &name);
 
 protected:
-	virtual void LoadEntries(PostgresTransaction &transaction) = 0;
+	virtual void LoadEntries(ClientContext &context, PostgresTransaction &transaction) = 0;
 	//! Whether or not the catalog set contains dependencies to itself that have
 	//! to be resolved WHILE loading
 	virtual bool HasInternalDependencies() const {
 		return false;
 	}
-	void TryLoadEntries(PostgresTransaction &transaction);
+	void TryLoadEntries(ClientContext &context, PostgresTransaction &transaction);
 
 protected:
 	Catalog &catalog;

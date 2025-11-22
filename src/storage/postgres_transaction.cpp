@@ -107,15 +107,15 @@ unique_ptr<PostgresResult> PostgresTransaction::QueryWithoutTransaction(const st
 	return con.Query(query);
 }
 
-vector<unique_ptr<PostgresResult>> PostgresTransaction::ExecuteQueries(const string &queries) {
+vector<unique_ptr<PostgresResult>> PostgresTransaction::ExecuteQueries(ClientContext& context, const string &queries) {
 	auto &con = GetConnectionRaw();
 	if (transaction_state == PostgresTransactionState::TRANSACTION_NOT_YET_STARTED) {
 		transaction_state = PostgresTransactionState::TRANSACTION_STARTED;
 		string transaction_start = GetBeginTransactionQuery();
 		transaction_start += ";\n";
-		return con.ExecuteQueries(transaction_start + queries);
+		return con.ExecuteQueries(context, transaction_start + queries);
 	}
-	return con.ExecuteQueries(queries);
+	return con.ExecuteQueries(context, queries);
 }
 
 optional_ptr<CatalogEntry> PostgresTransaction::ReferenceEntry(shared_ptr<CatalogEntry> &entry) {

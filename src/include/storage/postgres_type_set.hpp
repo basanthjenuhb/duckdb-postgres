@@ -33,7 +33,7 @@ protected:
 		// composite types can refer to other types
 		return true;
 	}
-	void LoadEntries(PostgresTransaction &transaction) override;
+	void LoadEntries(ClientContext &context, PostgresTransaction &transaction) override;
 
 	void CreateEnum(PostgresTransaction &transaction, PostgresResult &result, idx_t start_row, idx_t end_row);
 	void CreateCompositeType(PostgresTransaction &transaction, PostgresResult &result, idx_t start_row, idx_t end_row);

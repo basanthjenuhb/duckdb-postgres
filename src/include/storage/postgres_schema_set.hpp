@@ -24,7 +24,7 @@ public:
 	static string GetInitializeQuery(const string &schema = string());
 
 protected:
-	void LoadEntries(PostgresTransaction &transaction) override;
+	void LoadEntries(ClientContext &context, PostgresTransaction &transaction) override;
 
 protected:
 	//! Schema to load - if empty loads all schemas (default behavior)

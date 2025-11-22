@@ -35,7 +35,7 @@ public:
 	string GetDSN();
 	unique_ptr<PostgresResult> Query(const string &query);
 	unique_ptr<PostgresResult> QueryWithoutTransaction(const string &query);
-	vector<unique_ptr<PostgresResult>> ExecuteQueries(const string &queries);
+	vector<unique_ptr<PostgresResult>> ExecuteQueries(ClientContext &context, const string &queries);
 	static PostgresTransaction &Get(ClientContext &context, Catalog &catalog);
 
 	optional_ptr<CatalogEntry> ReferenceEntry(shared_ptr<CatalogEntry> &entry);
