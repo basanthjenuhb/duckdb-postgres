@@ -19,6 +19,7 @@
 #include "duckdb/main/client_context_state.hpp"
 #include "duckdb/main/connection_manager.hpp"
 #include "duckdb/common/error_data.hpp"
+#include "postgres_logging.hpp"
 
 using namespace duckdb;
 
@@ -196,6 +197,10 @@ static void LoadInternal(ExtensionLoader &loader) {
 	for (auto &connection : ConnectionManager::Get(loader.GetDatabaseInstance()).GetConnectionList()) {
 		connection->registered_state->Insert("postgres_extension", make_shared_ptr<PostgresExtensionState>());
 	}
+
+auto &instance = loader.GetDatabaseInstance();
+auto &log_manager = instance.GetLogManager();
+	log_manager.RegisterLogType(make_uniq<PostgresQueryLogType>());
 }
 
 void PostgresScannerExtension::Load(ExtensionLoader &loader) {

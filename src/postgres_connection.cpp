@@ -62,7 +62,7 @@ static bool ResultHasError(PGresult *result) {
 }
 
 PGresult *PostgresConnection::PQExecute(ClientContext &context, const string &query) {
-	DUCKDB_LOG(context, PostgresQueryLogType, query);
+	DUCKDB_LOG(context, PostgresQueryLogType, query, 10);
 	if (PostgresConnection::DebugPrintQueries()) {
 		Printer::Print(query + "\n");
 	}
@@ -97,7 +97,7 @@ void PostgresConnection::Execute(ClientContext &context, const string &query) {
 }
 
 vector<unique_ptr<PostgresResult>> PostgresConnection::ExecuteQueries(ClientContext &context, const string &queries) {
-	DUCKDB_LOG(context, PostgresQueryLogType, queries);
+	DUCKDB_LOG(context, PostgresQueryLogType, queries, 15);
 	if (PostgresConnection::DebugPrintQueries()) {
 		Printer::Print(queries + "\n");
 	}
