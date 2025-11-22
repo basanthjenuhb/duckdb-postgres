@@ -2,6 +2,7 @@
 #include "duckdb/parser/column_list.hpp"
 #include "duckdb/parser/parser.hpp"
 #include "postgres_connection.hpp"
+#include "postgres_logging.hpp"
 #include "duckdb/common/types/uuid.hpp"
 #include "duckdb/common/shared_ptr.hpp"
 #include "duckdb/common/helper.hpp"
@@ -61,6 +62,7 @@ static bool ResultHasError(PGresult *result) {
 }
 
 PGresult *PostgresConnection::PQExecute(ClientContext &context, const string &query) {
+	DUCKDB_LOG(context, PostgresQueryLogType, query);
 	if (PostgresConnection::DebugPrintQueries()) {
 		Printer::Print(query + "\n");
 	}
@@ -95,6 +97,7 @@ void PostgresConnection::Execute(ClientContext &context, const string &query) {
 }
 
 vector<unique_ptr<PostgresResult>> PostgresConnection::ExecuteQueries(ClientContext &context, const string &queries) {
+	DUCKDB_LOG(context, PostgresQueryLogType, queries);
 	if (PostgresConnection::DebugPrintQueries()) {
 		Printer::Print(queries + "\n");
 	}
