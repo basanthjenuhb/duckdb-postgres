@@ -62,11 +62,18 @@ static bool ResultHasError(PGresult *result) {
 }
 
 PGresult *PostgresConnection::PQExecute(ClientContext &context, const string &query) {
-	DUCKDB_LOG(context, PostgresQueryLogType, query, 10);
 	if (PostgresConnection::DebugPrintQueries()) {
 		Printer::Print(query + "\n");
 	}
-	return PQexec(GetConn(), query.c_str());
+        int64_t start_time = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now())
+                          .time_since_epoch()
+                          .count();
+	auto res = PQexec(GetConn(), query.c_str());
+        int64_t end_time = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now())
+                          .time_since_epoch()
+                          .count();
+	DUCKDB_LOG(context, PostgresQueryLogType, query, end_time - start_time);
+	return res;
 }
 
 unique_ptr<PostgresResult> PostgresConnection::TryQuery(ClientContext &context, const string &query, optional_ptr<string> error_message) {
@@ -97,10 +104,12 @@ void PostgresConnection::Execute(ClientContext &context, const string &query) {
 }
 
 vector<unique_ptr<PostgresResult>> PostgresConnection::ExecuteQueries(ClientContext &context, const string &queries) {
-	DUCKDB_LOG(context, PostgresQueryLogType, queries, 15);
 	if (PostgresConnection::DebugPrintQueries()) {
 		Printer::Print(queries + "\n");
 	}
+        int64_t start_time = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now())
+                          .time_since_epoch()
+                          .count();
 	auto res = PQsendQuery(GetConn(), queries.c_str());
 	if (res == 0) {
 		throw std::runtime_error("Failed to execute query \"" + queries + "\": " + string(PQerrorMessage(GetConn())));
@@ -121,6 +130,10 @@ vector<unique_ptr<PostgresResult>> PostgresConnection::ExecuteQueries(ClientCont
 		}
 		results.push_back(std::move(result));
 	}
+        int64_t end_time = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now())
+                          .time_since_epoch()
+                          .count();
+	DUCKDB_LOG(context, PostgresQueryLogType, queries, end_time - start_time);
 	return results;
 }
 
