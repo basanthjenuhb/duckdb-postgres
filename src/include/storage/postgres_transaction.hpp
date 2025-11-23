@@ -30,7 +30,7 @@ public:
 
 	PostgresConnection &GetConnectionWithoutTransaction();
 	PostgresConnection &GetConnection();
-	ClientContext &GetContext();
+	optional_ptr<ClientContext> GetContext();
 
 	string GetDSN();
 	unique_ptr<PostgresResult> Query(const string &query);

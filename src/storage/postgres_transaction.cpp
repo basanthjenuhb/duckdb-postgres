@@ -16,8 +16,8 @@ PostgresTransaction::PostgresTransaction(PostgresCatalog &postgres_catalog, Tran
 
 PostgresTransaction::~PostgresTransaction() = default;
 
-ClientContext &PostgresTransaction::GetContext() {
-	return *context.lock();
+optional_ptr<ClientContext> PostgresTransaction::GetContext() {
+	return context.lock();
 }
 
 void PostgresTransaction::Start() {

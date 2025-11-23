@@ -90,7 +90,7 @@ LogicalType PostgresUtils::TypeToLogicalType(optional_ptr<PostgresTransaction> t
 	// postgres array types start with an _
 	if (StringUtil::StartsWith(pgtypename, "_")) {
 		if (transaction) {
-			auto context = transaction->context.lock();
+			auto context = transaction->GetContext();
 			if (!context) {
 				throw InternalException("Context is destroyed!?");
 			}
@@ -204,7 +204,7 @@ LogicalType PostgresUtils::TypeToLogicalType(optional_ptr<PostgresTransaction> t
 			postgres_type.info = PostgresTypeAnnotation::CAST_TO_VARCHAR;
 			return LogicalType::VARCHAR;
 		}
-		auto context = transaction->context.lock();
+		auto context = transaction->GetContext();
 		if (!context) {
 			throw InternalException("Context is destroyed!?");
 		}

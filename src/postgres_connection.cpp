@@ -61,7 +61,7 @@ static bool ResultHasError(PGresult *result) {
 	}
 }
 
-PGresult *PostgresConnection::PQExecute(ClientContext &context, const string &query) {
+PGresult *PostgresConnection::PQExecute(optional_ptr<ClientContext> context, const string &query) {
 	if (PostgresConnection::DebugPrintQueries()) {
 		Printer::Print(query + "\n");
 	}
@@ -72,11 +72,13 @@ PGresult *PostgresConnection::PQExecute(ClientContext &context, const string &qu
         int64_t end_time = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now())
                           .time_since_epoch()
                           .count();
-	DUCKDB_LOG(context, PostgresQueryLogType, query, end_time - start_time);
+	if (context) {
+		DUCKDB_LOG(*context, PostgresQueryLogType, query, end_time - start_time);
+	}
 	return res;
 }
 
-unique_ptr<PostgresResult> PostgresConnection::TryQuery(ClientContext &context, const string &query, optional_ptr<string> error_message) {
+unique_ptr<PostgresResult> PostgresConnection::TryQuery(optional_ptr<ClientContext> context, const string &query, optional_ptr<string> error_message) {
 	lock_guard<mutex> guard(connection->connection_lock);
 	auto result = PQExecute(context, query.c_str());
 	if (ResultHasError(result)) {
@@ -90,7 +92,7 @@ unique_ptr<PostgresResult> PostgresConnection::TryQuery(ClientContext &context, 
 	return make_uniq<PostgresResult>(result);
 }
 
-unique_ptr<PostgresResult> PostgresConnection::Query(ClientContext &context, const string &query) {
+unique_ptr<PostgresResult> PostgresConnection::Query(optional_ptr<ClientContext> context, const string &query) {
 	string error_msg;
 	auto result = TryQuery(context, query, &error_msg);
 	if (!result) {
@@ -99,7 +101,7 @@ unique_ptr<PostgresResult> PostgresConnection::Query(ClientContext &context, con
 	return result;
 }
 
-void PostgresConnection::Execute(ClientContext &context, const string &query) {
+void PostgresConnection::Execute(optional_ptr<ClientContext> context, const string &query) {
 	Query(context, query);
 }
 

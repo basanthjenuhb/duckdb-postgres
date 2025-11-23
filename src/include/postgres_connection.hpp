@@ -45,9 +45,9 @@ public:
 
 public:
 	static PostgresConnection Open(const string &dsn, const string &attach_path);
-	void Execute(ClientContext &context, const string &query);
-	unique_ptr<PostgresResult> TryQuery(ClientContext & context, const string &query, optional_ptr<string> error_message = nullptr);
-	unique_ptr<PostgresResult> Query(ClientContext &context, const string &query);
+	void Execute(optional_ptr<ClientContext> context, const string &query);
+	unique_ptr<PostgresResult> TryQuery(optional_ptr<ClientContext> context, const string &query, optional_ptr<string> error_message = nullptr);
+	unique_ptr<PostgresResult> Query(optional_ptr<ClientContext> context, const string &query);
 
 	//! Submits a set of queries to be executed in the connection.
 	vector<unique_ptr<PostgresResult>> ExecuteQueries(ClientContext &context, const string &queries);
@@ -87,7 +87,7 @@ public:
 	static bool DebugPrintQueries();
 
 private:
-	PGresult *PQExecute(ClientContext &context, const string &query);
+	PGresult *PQExecute(optional_ptr<ClientContext> context, const string &query);
 
 	shared_ptr<OwnedPostgresConnection> connection;
 	string dsn;
