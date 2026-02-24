@@ -21,12 +21,11 @@ PGconn *PostgresUtils::PGConnect(const string &dsn, const string &attach_path) {
 
 string PostgresUtils::TypeToString(const LogicalType &input) {
 	if (input.HasAlias()) {
-		if (StringUtil::CIEquals(input.GetAlias(), "wkb_blob")) {
-			return "GEOMETRY";
-		}
 		return input.GetAlias();
 	}
 	switch (input.id()) {
+	case LogicalTypeId::GEOMETRY:
+		return "GEOMETRY";
 	case LogicalTypeId::FLOAT:
 		return "REAL";
 	case LogicalTypeId::DOUBLE:
@@ -50,21 +49,12 @@ string PostgresUtils::TypeToString(const LogicalType &input) {
 	}
 }
 
-LogicalType GetGeometryType() {
-	auto blob_type = LogicalType(LogicalTypeId::BLOB);
-	blob_type.SetAlias("WKB_BLOB");
-	return blob_type;
-}
-
 LogicalType PostgresUtils::RemoveAlias(const LogicalType &type) {
 	if (!type.HasAlias()) {
 		return type;
 	}
 	if (StringUtil::CIEquals(type.GetAlias(), "json")) {
 		return type;
-	}
-	if (StringUtil::CIEquals(type.GetAlias(), "geometry")) {
-		return GetGeometryType();
 	}
 	switch (type.id()) {
 	case LogicalTypeId::STRUCT: {
@@ -157,7 +147,7 @@ LogicalType PostgresUtils::TypeToLogicalType(optional_ptr<PostgresTransaction> t
 		postgres_type.info = PostgresTypeAnnotation::JSONB;
 		return LogicalType::VARCHAR;
 	} else if (pgtypename == "geometry") {
-		return GetGeometryType();
+		return LogicalType::GEOMETRY();
 	} else if (pgtypename == "date") {
 		return LogicalType::DATE;
 	} else if (pgtypename == "bytea") {
@@ -270,6 +260,8 @@ LogicalType PostgresUtils::ToPostgresType(const LogicalType &input) {
 		return LogicalType::DECIMAL(20, 0);
 	case LogicalTypeId::HUGEINT:
 		return LogicalType::DOUBLE;
+	case LogicalTypeId::GEOMETRY:
+		return LogicalType::GEOMETRY();
 	default:
 		return LogicalType::VARCHAR;
 	}
