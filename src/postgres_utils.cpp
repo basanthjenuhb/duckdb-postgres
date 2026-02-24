@@ -20,6 +20,9 @@ PGconn *PostgresUtils::PGConnect(const string &dsn, const string &attach_path) {
 }
 
 string PostgresUtils::TypeToString(const LogicalType &input) {
+	if (input.HasAlias()) {
+		return input.GetAlias();
+	}
 	switch (input.id()) {
 	case LogicalTypeId::GEOMETRY:
 		return "GEOMETRY";
