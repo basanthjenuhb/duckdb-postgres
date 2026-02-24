@@ -6,6 +6,9 @@ require postgres_scanner
 
 require-env POSTGRES_TEST_DATABASE_AVAILABLE
 
+# This is just to disable the test until we figure out how to get PostGIS in the CI
+require-env HAS_POSTGIS
+
 statement ok
 PRAGMA enable_verification
 
