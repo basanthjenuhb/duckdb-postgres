@@ -12,15 +12,29 @@
 #include "duckdb/common/mutex.hpp"
 #include "duckdb/common/optional_ptr.hpp"
 #include "postgres_connection.hpp"
+#include <chrono>
+#include <thread>
+#include <condition_variable>
+#include <atomic>
 
 namespace duckdb {
 class PostgresCatalog;
 class PostgresConnectionPool;
 
+using steady_clock = std::chrono::steady_clock;
+using steady_time_point = steady_clock::time_point;
+
+struct CachedConnection {
+	PostgresConnection connection;
+	steady_time_point created_at;
+	steady_time_point returned_at;
+};
+
 class PostgresPoolConnection {
 public:
 	PostgresPoolConnection();
-	PostgresPoolConnection(optional_ptr<PostgresConnectionPool> pool, PostgresConnection connection);
+	PostgresPoolConnection(optional_ptr<PostgresConnectionPool> pool, PostgresConnection connection,
+	                       steady_time_point created_at);
 	~PostgresPoolConnection();
 	// disable copy constructors
 	PostgresPoolConnection(const PostgresPoolConnection &other) = delete;
@@ -31,10 +45,12 @@ public:
 
 	bool HasConnection();
 	PostgresConnection &GetConnection();
+	steady_time_point GetCreatedAt() const;
 
 private:
 	optional_ptr<PostgresConnectionPool> pool;
 	PostgresConnection connection;
+	steady_time_point created_at;
 };
 
 class PostgresConnectionPool {
@@ -42,14 +58,17 @@ public:
 	static constexpr const idx_t DEFAULT_MAX_CONNECTIONS = 64;
 
 	PostgresConnectionPool(PostgresCatalog &postgres_catalog, idx_t maximum_connections = DEFAULT_MAX_CONNECTIONS);
+	~PostgresConnectionPool();
 
 public:
 	bool TryGetConnection(PostgresPoolConnection &connection);
 	PostgresPoolConnection GetConnection();
 	//! Always returns a connection - even if the connection slots are exhausted
 	PostgresPoolConnection ForceGetConnection();
-	void ReturnConnection(PostgresConnection connection);
+	void ReturnConnection(PostgresConnection connection, steady_time_point created_at);
 	void SetMaximumConnections(idx_t new_max);
+	void SetMaxLifetime(idx_t seconds);
+	void SetIdleTimeout(idx_t seconds);
 
 	static void PostgresSetConnectionCache(ClientContext &context, SetScope scope, Value &parameter);
 
@@ -58,7 +77,19 @@ private:
 	mutex connection_lock;
 	idx_t active_connections;
 	idx_t maximum_connections;
-	vector<PostgresConnection> connection_cache;
+	vector<CachedConnection> connection_cache;
+
+	idx_t max_lifetime_seconds = 0;
+	idx_t idle_timeout_seconds = 0;
+
+	std::thread reaper_thread;
+	std::condition_variable reaper_cv;
+	std::atomic<bool> shutdown {false};
+
+	bool IsExpired(const CachedConnection &entry, steady_time_point now) const;
+	void ReaperLoop();
+	void StartReaperIfNeeded(unique_lock<mutex> &lock);
+	void StopReaper(unique_lock<mutex> &lock);
 
 private:
 	PostgresPoolConnection GetConnectionInternal(unique_lock<mutex> &lock);

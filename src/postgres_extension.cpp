@@ -70,6 +70,40 @@ static void SetPostgresConnectionLimit(ClientContext &context, SetScope scope, V
 	config.SetOption("pg_connection_limit", parameter);
 }
 
+static void SetPostgresMaxLifetime(ClientContext &context, SetScope scope, Value &parameter) {
+	if (scope == SetScope::LOCAL) {
+		throw InvalidInputException("pg_connection_max_lifetime can only be set globally");
+	}
+	auto databases = DatabaseManager::Get(context).GetDatabases(context);
+	for (auto &db_ref : databases) {
+		auto &db = *db_ref;
+		auto &catalog = db.GetCatalog();
+		if (catalog.GetCatalogType() != "postgres") {
+			continue;
+		}
+		catalog.Cast<PostgresCatalog>().GetConnectionPool().SetMaxLifetime(UBigIntValue::Get(parameter));
+	}
+	auto &config = DBConfig::GetConfig(context);
+	config.SetOption("pg_connection_max_lifetime", parameter);
+}
+
+static void SetPostgresIdleTimeout(ClientContext &context, SetScope scope, Value &parameter) {
+	if (scope == SetScope::LOCAL) {
+		throw InvalidInputException("pg_connection_idle_timeout can only be set globally");
+	}
+	auto databases = DatabaseManager::Get(context).GetDatabases(context);
+	for (auto &db_ref : databases) {
+		auto &db = *db_ref;
+		auto &catalog = db.GetCatalog();
+		if (catalog.GetCatalogType() != "postgres") {
+			continue;
+		}
+		catalog.Cast<PostgresCatalog>().GetConnectionPool().SetIdleTimeout(UBigIntValue::Get(parameter));
+	}
+	auto &config = DBConfig::GetConfig(context);
+	config.SetOption("pg_connection_idle_timeout", parameter);
+}
+
 static void SetPostgresDebugQueryPrint(ClientContext &context, SetScope scope, Value &parameter) {
 	PostgresConnection::DebugSetPrintQueries(BooleanValue::Get(parameter));
 }
@@ -172,6 +206,12 @@ static void LoadInternal(ExtensionLoader &loader) {
 	config.AddExtensionOption("pg_connection_limit", "The maximum amount of concurrent Postgres connections",
 	                          LogicalType::UBIGINT, Value::UBIGINT(PostgresConnectionPool::DEFAULT_MAX_CONNECTIONS),
 	                          SetPostgresConnectionLimit);
+	config.AddExtensionOption("pg_connection_max_lifetime",
+	                          "Maximum lifetime of a pooled connection in seconds (0 = disabled)",
+	                          LogicalType::UBIGINT, Value::UBIGINT(0), SetPostgresMaxLifetime);
+	config.AddExtensionOption("pg_connection_idle_timeout",
+	                          "Maximum idle time of a pooled connection in seconds before it is closed (0 = disabled)",
+	                          LogicalType::UBIGINT, Value::UBIGINT(0), SetPostgresIdleTimeout);
 	config.AddExtensionOption(
 	    "pg_array_as_varchar", "Read Postgres arrays as varchar - enables reading mixed dimensional arrays",
 	    LogicalType::BOOLEAN, Value::BOOLEAN(false), PostgresClearCacheFunction::ClearCacheOnSetting);

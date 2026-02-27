@@ -1,0 +1,111 @@
+# name: test/sql/storage/attach_connection_lifetime.test
+# description: Test connection pool max lifetime and idle timeout settings
+# group: [storage]
+
+require postgres_scanner
+
+require-env POSTGRES_TEST_DATABASE_AVAILABLE
+
+statement ok
+PRAGMA enable_verification
+
+statement ok
+SET pg_connection_cache=true
+
+statement ok
+ATTACH 'dbname=postgresscanner' AS s (TYPE POSTGRES);
+
+statement ok
+USE s
+
+statement ok
+CREATE OR REPLACE TABLE connection_lifetime_test(i INTEGER);
+
+statement ok
+INSERT INTO connection_lifetime_test FROM range(100)
+
+# verify queries work before enabling lifetime settings
+query I
+SELECT COUNT(*) FROM connection_lifetime_test
+----
+100
+
+# enable max lifetime with a short duration (2 seconds)
+statement ok
+SET pg_connection_max_lifetime=2
+
+# queries should still succeed
+query I
+SELECT COUNT(*) FROM connection_lifetime_test
+----
+100
+
+# wait for connections to expire
+statement ok
+SELECT pg_sleep(3)
+
+# queries should still succeed — pool creates new connections as needed
+query I
+SELECT COUNT(*) FROM connection_lifetime_test
+----
+100
+
+# disable max lifetime
+statement ok
+SET pg_connection_max_lifetime=0
+
+# enable idle timeout with a short duration (2 seconds)
+statement ok
+SET pg_connection_idle_timeout=2
+
+query I
+SELECT COUNT(*) FROM connection_lifetime_test
+----
+100
+
+# wait for idle connections to be reaped
+statement ok
+SELECT pg_sleep(3)
+
+# queries should still succeed after idle connections are reaped
+query I
+SELECT COUNT(*) FROM connection_lifetime_test
+----
+100
+
+# disable idle timeout
+statement ok
+SET pg_connection_idle_timeout=0
+
+# enable both settings simultaneously
+statement ok
+SET pg_connection_max_lifetime=2
+
+statement ok
+SET pg_connection_idle_timeout=1
+
+query I
+SELECT COUNT(*) FROM connection_lifetime_test
+----
+100
+
+statement ok
+SELECT pg_sleep(3)
+
+query I
+SELECT COUNT(*) FROM connection_lifetime_test
+----
+100
+
+# disable both
+statement ok
+SET pg_connection_max_lifetime=0
+
+statement ok
+SET pg_connection_idle_timeout=0
+
+# final sanity check
+query I
+SELECT COUNT(*) FROM connection_lifetime_test
+----
+100

@@ -23,6 +23,14 @@ PostgresCatalog::PostgresCatalog(AttachedDatabase &db_p, string connection_strin
 	if (db_instance.TryGetCurrentSetting("pg_connection_limit", connection_limit)) {
 		connection_pool.SetMaximumConnections(UBigIntValue::Get(connection_limit));
 	}
+	Value max_lifetime;
+	if (db_instance.TryGetCurrentSetting("pg_connection_max_lifetime", max_lifetime)) {
+		connection_pool.SetMaxLifetime(UBigIntValue::Get(max_lifetime));
+	}
+	Value idle_timeout;
+	if (db_instance.TryGetCurrentSetting("pg_connection_idle_timeout", idle_timeout)) {
+		connection_pool.SetIdleTimeout(UBigIntValue::Get(idle_timeout));
+	}
 
 	auto connection = connection_pool.GetConnection();
 	this->version = connection.GetConnection().GetPostgresVersion(context);
