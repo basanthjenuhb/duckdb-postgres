@@ -5,13 +5,11 @@
 namespace duckdb {
 static bool pg_use_connection_cache = true;
 
-// --- PostgresPoolConnection ---
-
 PostgresPoolConnection::PostgresPoolConnection() : pool(nullptr), created_at() {
 }
 
 PostgresPoolConnection::PostgresPoolConnection(optional_ptr<PostgresConnectionPool> pool,
-                                               PostgresConnection connection_p, steady_time_point created_at_p)
+                                               PostgresConnection connection_p, time_point_t created_at_p)
     : pool(pool), connection(std::move(connection_p)), created_at(created_at_p) {
 }
 
@@ -44,12 +42,6 @@ PostgresConnection &PostgresPoolConnection::GetConnection() {
 	}
 	return connection;
 }
-
-steady_time_point PostgresPoolConnection::GetCreatedAt() const {
-	return created_at;
-}
-
-// --- PostgresConnectionPool ---
 
 PostgresConnectionPool::PostgresConnectionPool(PostgresCatalog &postgres_catalog, idx_t maximum_connections_p)
     : postgres_catalog(postgres_catalog), active_connections(0), maximum_connections(maximum_connections_p) {
@@ -97,9 +89,14 @@ void PostgresConnectionPool::ReaperLoop() {
 		}
 
 		auto now = steady_clock::now();
-		auto it = std::remove_if(connection_cache.begin(), connection_cache.end(),
-		                         [this, now](const CachedConnection &entry) { return IsExpired(entry, now); });
+		auto it = std::partition(connection_cache.begin(), connection_cache.end(),
+		                         [this, now](const CachedConnection &e) { return !IsExpired(e, now); });
+		vector<CachedConnection> expired(std::make_move_iterator(it), std::make_move_iterator(connection_cache.end()));
 		connection_cache.erase(it, connection_cache.end());
+		// release lock while destroying expired connections (PQfinish may block)
+		l.unlock();
+		expired.clear();
+		l.lock();
 	}
 }
 
@@ -138,8 +135,14 @@ PostgresPoolConnection PostgresConnectionPool::GetConnectionInternal(unique_lock
 	}
 	lock.unlock();
 	auto created = steady_clock::now();
-	return PostgresPoolConnection(
-	    this, PostgresConnection::Open(postgres_catalog.connection_string, postgres_catalog.attach_path), created);
+	try {
+		return PostgresPoolConnection(
+		    this, PostgresConnection::Open(postgres_catalog.connection_string, postgres_catalog.attach_path), created);
+	} catch (...) {
+		lock.lock();
+		active_connections--;
+		throw;
+	}
 }
 
 PostgresPoolConnection PostgresConnectionPool::ForceGetConnection() {
@@ -179,6 +182,7 @@ void PostgresConnectionPool::ReturnConnection(PostgresConnection connection, ste
 		throw InternalException("PostgresConnectionPool::ReturnConnection called but active_connections is 0");
 	}
 	if (!pg_use_connection_cache) {
+		// not caching - just return
 		active_connections--;
 		return;
 	}
@@ -192,12 +196,17 @@ void PostgresConnectionPool::ReturnConnection(PostgresConnection connection, ste
 		}
 	}
 
+	// we want to cache the connection
+	// check if the underlying connection is still usable
+	// avoid holding the lock while doing this
 	l.unlock();
 	bool connection_is_bad = false;
 	auto pg_con = connection.GetConn();
 	if (PQstatus(connection.GetConn()) != CONNECTION_OK) {
+		// CONNECTION_BAD! try to reset it
 		PQreset(pg_con);
 		if (PQstatus(connection.GetConn()) != CONNECTION_OK) {
+			// still bad - just abandon this one
 			connection_is_bad = true;
 		}
 	}
@@ -205,12 +214,16 @@ void PostgresConnectionPool::ReturnConnection(PostgresConnection connection, ste
 		connection_is_bad = true;
 	}
 
+	// lock and return the connection
 	l.lock();
 	active_connections--;
 	if (connection_is_bad) {
+		// if the connection is bad we cannot cache it
 		return;
 	}
 	if (active_connections >= maximum_connections) {
+		// if the maximum number of connections has been decreased by the user we might need to reclaim the connection
+		// immediately
 		return;
 	}
 	CachedConnection cached;
@@ -223,6 +236,9 @@ void PostgresConnectionPool::ReturnConnection(PostgresConnection connection, ste
 void PostgresConnectionPool::SetMaximumConnections(idx_t new_max) {
 	lock_guard<mutex> l(connection_lock);
 	if (new_max < maximum_connections) {
+		// potentially close connections
+		// note that we can only close connections in the connection cache
+		// we will have to wait for connections to be returned
 		auto total_open_connections = active_connections + connection_cache.size();
 		while (!connection_cache.empty() && total_open_connections > new_max) {
 			total_open_connections--;
@@ -232,10 +248,10 @@ void PostgresConnectionPool::SetMaximumConnections(idx_t new_max) {
 	maximum_connections = new_max;
 }
 
-void PostgresConnectionPool::SetMaxLifetime(idx_t seconds) {
+void PostgresConnectionPool::UpdateTimeoutSetting(idx_t &field, idx_t seconds) {
 	unique_lock<mutex> l(connection_lock);
-	max_lifetime_seconds = seconds;
-	if (seconds == 0 && idle_timeout_seconds == 0) {
+	field = seconds;
+	if (max_lifetime_seconds == 0 && idle_timeout_seconds == 0) {
 		StopReaper(l);
 	} else {
 		StartReaperIfNeeded(l);
@@ -243,15 +259,12 @@ void PostgresConnectionPool::SetMaxLifetime(idx_t seconds) {
 	}
 }
 
+void PostgresConnectionPool::SetMaxLifetime(idx_t seconds) {
+	UpdateTimeoutSetting(max_lifetime_seconds, seconds);
+}
+
 void PostgresConnectionPool::SetIdleTimeout(idx_t seconds) {
-	unique_lock<mutex> l(connection_lock);
-	idle_timeout_seconds = seconds;
-	if (seconds == 0 && max_lifetime_seconds == 0) {
-		StopReaper(l);
-	} else {
-		StartReaperIfNeeded(l);
-		reaper_cv.notify_all();
-	}
+	UpdateTimeoutSetting(idle_timeout_seconds, seconds);
 }
 
 } // namespace duckdb

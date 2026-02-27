@@ -70,9 +70,15 @@ static void SetPostgresConnectionLimit(ClientContext &context, SetScope scope, V
 	config.SetOption("pg_connection_limit", parameter);
 }
 
-static void SetPostgresMaxLifetime(ClientContext &context, SetScope scope, Value &parameter) {
+using PoolTimeoutSetter = void (PostgresConnectionPool::*)(idx_t);
+
+static void SetPostgresPoolTimeout(ClientContext &context, SetScope scope, Value &parameter,
+                                   const char *option_name, PoolTimeoutSetter setter) {
+	if (parameter.IsNull()) {
+		throw BinderException("Cannot be set to NULL");
+	}
 	if (scope == SetScope::LOCAL) {
-		throw InvalidInputException("pg_connection_max_lifetime can only be set globally");
+		throw InvalidInputException("%s can only be set globally", option_name);
 	}
 	auto databases = DatabaseManager::Get(context).GetDatabases(context);
 	for (auto &db_ref : databases) {
@@ -81,27 +87,20 @@ static void SetPostgresMaxLifetime(ClientContext &context, SetScope scope, Value
 		if (catalog.GetCatalogType() != "postgres") {
 			continue;
 		}
-		catalog.Cast<PostgresCatalog>().GetConnectionPool().SetMaxLifetime(UBigIntValue::Get(parameter));
+		(catalog.Cast<PostgresCatalog>().GetConnectionPool().*setter)(UBigIntValue::Get(parameter));
 	}
 	auto &config = DBConfig::GetConfig(context);
-	config.SetOption("pg_connection_max_lifetime", parameter);
+	config.SetOption(option_name, parameter);
+}
+
+static void SetPostgresMaxLifetime(ClientContext &context, SetScope scope, Value &parameter) {
+	SetPostgresPoolTimeout(context, scope, parameter, "pg_connection_max_lifetime",
+	                       &PostgresConnectionPool::SetMaxLifetime);
 }
 
 static void SetPostgresIdleTimeout(ClientContext &context, SetScope scope, Value &parameter) {
-	if (scope == SetScope::LOCAL) {
-		throw InvalidInputException("pg_connection_idle_timeout can only be set globally");
-	}
-	auto databases = DatabaseManager::Get(context).GetDatabases(context);
-	for (auto &db_ref : databases) {
-		auto &db = *db_ref;
-		auto &catalog = db.GetCatalog();
-		if (catalog.GetCatalogType() != "postgres") {
-			continue;
-		}
-		catalog.Cast<PostgresCatalog>().GetConnectionPool().SetIdleTimeout(UBigIntValue::Get(parameter));
-	}
-	auto &config = DBConfig::GetConfig(context);
-	config.SetOption("pg_connection_idle_timeout", parameter);
+	SetPostgresPoolTimeout(context, scope, parameter, "pg_connection_idle_timeout",
+	                       &PostgresConnectionPool::SetIdleTimeout);
 }
 
 static void SetPostgresDebugQueryPrint(ClientContext &context, SetScope scope, Value &parameter) {

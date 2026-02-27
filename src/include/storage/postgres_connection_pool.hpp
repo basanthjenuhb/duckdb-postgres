@@ -21,20 +21,13 @@ namespace duckdb {
 class PostgresCatalog;
 class PostgresConnectionPool;
 
-using steady_clock = std::chrono::steady_clock;
-using steady_time_point = steady_clock::time_point;
-
-struct CachedConnection {
-	PostgresConnection connection;
-	steady_time_point created_at;
-	steady_time_point returned_at;
-};
-
 class PostgresPoolConnection {
 public:
+	using time_point_t = std::chrono::steady_clock::time_point;
+
 	PostgresPoolConnection();
 	PostgresPoolConnection(optional_ptr<PostgresConnectionPool> pool, PostgresConnection connection,
-	                       steady_time_point created_at);
+	                       time_point_t created_at);
 	~PostgresPoolConnection();
 	// disable copy constructors
 	PostgresPoolConnection(const PostgresPoolConnection &other) = delete;
@@ -45,16 +38,18 @@ public:
 
 	bool HasConnection();
 	PostgresConnection &GetConnection();
-	steady_time_point GetCreatedAt() const;
 
 private:
 	optional_ptr<PostgresConnectionPool> pool;
 	PostgresConnection connection;
-	steady_time_point created_at;
+	time_point_t created_at;
 };
 
 class PostgresConnectionPool {
 public:
+	using steady_clock = std::chrono::steady_clock;
+	using steady_time_point = steady_clock::time_point;
+
 	static constexpr const idx_t DEFAULT_MAX_CONNECTIONS = 64;
 
 	PostgresConnectionPool(PostgresCatalog &postgres_catalog, idx_t maximum_connections = DEFAULT_MAX_CONNECTIONS);
@@ -73,6 +68,12 @@ public:
 	static void PostgresSetConnectionCache(ClientContext &context, SetScope scope, Value &parameter);
 
 private:
+	struct CachedConnection {
+		PostgresConnection connection;
+		steady_time_point created_at;
+		steady_time_point returned_at;
+	};
+
 	PostgresCatalog &postgres_catalog;
 	mutex connection_lock;
 	idx_t active_connections;
@@ -90,8 +91,8 @@ private:
 	void ReaperLoop();
 	void StartReaperIfNeeded(unique_lock<mutex> &lock);
 	void StopReaper(unique_lock<mutex> &lock);
+	void UpdateTimeoutSetting(idx_t &field, idx_t seconds);
 
-private:
 	PostgresPoolConnection GetConnectionInternal(unique_lock<mutex> &lock);
 };
 

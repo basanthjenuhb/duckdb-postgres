@@ -109,3 +109,7 @@ query I
 SELECT COUNT(*) FROM connection_lifetime_test
 ----
 100
+
+# clean up
+statement ok
+DROP TABLE IF EXISTS connection_lifetime_test
